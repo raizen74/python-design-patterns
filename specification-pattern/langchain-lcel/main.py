@@ -18,7 +18,7 @@ class Runnable[In, Out]:
         return RunnableSequence(Runnable(other), self)
 
     def invoke(self, value: In) -> Out:
-        print(f"Calling {self.func.__name__}")
+        print(f"Calling {self.func.__name__} with value {value}")
         return self.func(value)
 
 
@@ -34,7 +34,9 @@ class RunnableSequence[In, Mid, Out](Runnable[In, Out]):
         # In -> Mid -> Out
         intermediate: Mid = self.first.invoke(value)
         print(f"Intermediate value: {intermediate}")
-        return self.last.invoke(intermediate)
+        final: Out = self.last.invoke(intermediate)
+        # print(f"Final value: {final}")
+        return final
 
 
 # ------------------------------------------------------------
@@ -130,7 +132,7 @@ def condition(value: int) -> bool:
 # Routing logic: If result > 50, continue processing. Else, return immediately.
 conditional = RunnableBranch(
     condition=condition,
-    on_true=add_five | multiply_by_two,
+    on_true=add_five | multiply_by_two | multiply_by_two,
     on_false=Passthrough(), # Returns the result of step1 immediately
 )
 
