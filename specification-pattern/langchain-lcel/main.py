@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
+from typing import Any
 
 
 # The [In, Out] syntax automatically creates TypeVars and marks the class as Generic
@@ -40,13 +41,25 @@ class RunnableSequence[In, Mid, Out](Runnable[In, Out]):
 # Decorators
 # ------------------------------------------------------------
 
-def runnable[In, Out](fn: Callable[[In], Out]) -> Runnable[In, Out]:
+type RunnableFn[In, Out] = Callable[[In], Out]
+type RunnableDef = Callable[..., Any]
+type RunnableFactory[In, Out] = Callable[..., Runnable[In, Out]]
+
+def runnable[In, Out](fn: RunnableFn[In, Out]) -> Runnable[In, Out]:
     @wraps(fn)
     def wrapper(obj: In) -> Out:
         return fn(obj)
 
     return Runnable(wrapper)
 
+
+# Allows to pass extra params to runnable function
+def runnable_extra[In, Out](fn: RunnableDef) -> RunnableFactory[In, Out]:
+    @wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Runnable[In, Out]:
+        return Runnable(lambda obj: fn(*args, obj, **kwargs)) # obj is the param received in invoke()
+
+    return wrapper
 
 @runnable
 def add_five(x: int) -> int:
@@ -57,6 +70,17 @@ def add_five(x: int) -> int:
 def multiply_by_two(x: int) -> int:
     return x * 2
 
+@runnable_extra
+def add(x: int, y: int) -> int: # y is the obj parameter of the wrapper
+    print(f"Adding {x} and {y}")
+    return x + y
+
+@runnable_extra
+def multiply(x: int, y: int) -> int:
+    print(f"Multiplying {x} and {y}")
+    return x * y
+
+
 # Let's define some "steps"
 # Composition: No math is done yet!
 # This creates a RunnableSequence(add_five, multiply_by_two)
@@ -66,6 +90,10 @@ runnable_sequence: RunnableSequence = add_five | multiply_by_two
 # print(f"{type(runnable_sequence) = }")
 
 print(f"{runnable_sequence.invoke(10) = }")
+
+runnable_extra_sequence = add(5) | multiply(2) # 5 and 2 are the x params, the *args
+
+print(f"{runnable_extra_sequence.invoke(10) = }") # 10 is the y param (obj of the decorator)
 
 
 # ------------------------------------------------------------
