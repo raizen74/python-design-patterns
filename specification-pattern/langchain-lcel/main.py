@@ -40,22 +40,21 @@ class RunnableSequence[In, Mid, Out](Runnable[In, Out]):
 # Decorators
 # ------------------------------------------------------------
 
-
-def runnable(fn) -> Runnable:
+def runnable[In, Out](fn: Callable[[In], Out]) -> Runnable[In, Out]:
     @wraps(fn)
-    def wrapper(obj):
+    def wrapper(obj: In) -> Out:
         return fn(obj)
 
     return Runnable(wrapper)
 
 
 @runnable
-def add_five(x):
+def add_five(x: int) -> int:
     return x + 5
 
 
 @runnable
-def multiply_by_two(x):
+def multiply_by_two(x: int) -> int:
     return x * 2
 
 # Let's define some "steps"
@@ -66,7 +65,7 @@ runnable_sequence: RunnableSequence = add_five | multiply_by_two
 # print(f"{vars(runnable_sequence) = }")
 # print(f"{type(runnable_sequence) = }")
 
-# print(f"{runnable_sequence.invoke(10) = }")
+print(f"{runnable_sequence.invoke(10) = }")
 
 
 # ------------------------------------------------------------
@@ -86,7 +85,6 @@ class RunnableBranch[In, Out](Runnable[In, Out]):
 
     def invoke(self, value: In) -> Out:
         # The routing logic happens here at runtime
-        print(f"{self.condition(value) = }")
         if self.condition(value):
             return self.on_true.invoke(value)
         return self.on_false.invoke(value)
@@ -96,22 +94,22 @@ class Passthrough[T](Runnable[T, T]):
     def __init__(self):
         super().__init__(lambda x: x)
 
-def condition(value) -> bool:
-    print(f"Checking condition value > 50 for value: {value}")
+def condition(value: int) -> bool:
+    print(f"Checking condition value > 5 for value: {value}")
     return value > 10
 
 
 # Routing logic: If result > 50, continue processing. Else, return immediately.
 conditional = RunnableBranch(
     condition=condition,
-    on_true=multiply_by_two | add_five,
+    on_true=add_five | multiply_by_two,
     on_false=Passthrough(), # Returns the result of step1 immediately
 )
 
 # The Pipeline
-pipeline = add_five | conditional
+conditional_pipeline: RunnableSequence[int, int, int] = add_five | conditional
 
-print(f"{pipeline.invoke(10) = }")
+print(f"{conditional_pipeline.invoke(10) = }")
 
 # ------------------------------------------------------------
 # Executing multiple functions
@@ -133,8 +131,8 @@ branch_chain = RunnableParallel(
 )
 
 # The "Pipeline" definition
-final_chain: RunnableSequence = branch_chain | Runnable(lambda x: x["plus_five"] + x["times_two"])
+parallel_pipeline: RunnableSequence = branch_chain | Runnable(lambda x: x["plus_five"] + x["times_two"])
 
 # DEFERRED EXECUTION:
 # This is the moment the logic actually fires.
-print(f"{final_chain.invoke(10) = }")
+print(f"{parallel_pipeline.invoke(10) = }")
