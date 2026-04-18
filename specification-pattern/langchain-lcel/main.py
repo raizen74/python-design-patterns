@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial, wraps
@@ -22,14 +21,9 @@ class Runnable[In, Out]:
         """Mutates the func attribute in-place with partial."""
         self.func = partial(self.func, **kwargs)
 
-    def invoke(self, value: In | None = None) -> Out:
-        print(f"Calling Runnable with {value = }")
-        sig = inspect.signature(self.func)
-        print(f"{sig = }")
-        print(f"{self.func = }")
-        if value is None:
-            return self.func() # calls wrapper
-        return self.func(value)
+    def invoke(self, value) -> Out:
+        args = (value, ) if value is not None else ()
+        return self.func(*args)
 
 
 # This sequence tracks the start (In), the handshake type (Mid), and the end (Out)
@@ -59,11 +53,7 @@ type RunnableFactory[In, Out] = Callable[..., Runnable[In, Out]]
 def runnable[In, Out](fn: RunnableFn[In, Out]) -> Runnable[In, Out]:
     @wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Out:
-        print(f"{args = }")
-        print(f"{kwargs = }")
-        sig = inspect.signature(fn)
-        print(f"{sig = }")
-        return fn(*args, **kwargs)
+        return fn(*args, **kwargs) # forwards partial kwargs to fn
 
     return Runnable(wrapper)
 
@@ -89,7 +79,7 @@ def multiply_three_vars(x: int, y: int, z: int) -> int:
     return x * y * z
 
 # Partially initialize dependencies
-add_five.bind(x=5)
+add_five.bind(x=5) # kwarg passed to wrapper, wrapper forwards it to fn
 multiply_three_vars.bind(y=3, z=4)
 runnable_sequence_bound: RunnableSequence = add_five | multiply_by_two | multiply_three_vars
 print(f"{type(runnable_sequence) = }")
