@@ -32,7 +32,7 @@ class Runnable[In, Out]:
         """Mutates the func attribute in-place with partial."""
         self.func = partial(self.func, **kwargs)
 
-    def invoke(self, value) -> Out:
+    def invoke(self, value: In = None) -> Out:
         args = (value, ) if value is not None else ()
         res = self.func(*args)
         print(f"{self}.invoke({value}) = {res}")
@@ -48,7 +48,7 @@ class RunnableSequence[In, Mid, Out](Runnable[In, Out]):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(first={self.first!r}, last={self.last!r})"
 
-    def invoke(self, value: In | None = None) -> Out:
+    def invoke(self, value: In = None) -> Out:
         print(f"{self}.invoke({value})")
         # Static checkers now verify:
         # In -> Mid -> Out
@@ -64,7 +64,6 @@ class RunnableSequence[In, Mid, Out](Runnable[In, Out]):
 # ------------------------------------------------------------
 
 type RunnableFn[In, Out] = Callable[[In], Out]
-type RunnableFactory[In, Out] = Callable[..., Runnable[In, Out]]
 
 def runnable[In, Out](fn: RunnableFn[In, Out]) -> Runnable[In, Out]:
     @wraps(fn)
@@ -104,7 +103,7 @@ print(f"{runnable_sequence_bound.invoke() = }")
 print("-----------------------------------------------------------------------")
 
 type RunnableDef = Callable[..., Any]
-
+type RunnableFactory[In, Out] = Callable[..., Runnable[In, Out]]
 # Allows to pass extra params to runnable function at composition time
 def runnable_extra[In, Out](fn: RunnableDef) -> RunnableFactory[In, Out]:
     @wraps(fn)
