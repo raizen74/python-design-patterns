@@ -1,6 +1,6 @@
+import inspect
 from collections.abc import Callable
 from functools import partial, wraps
-import inspect
 from typing import Any
 
 from main import Runnable
