@@ -17,8 +17,15 @@ class Composable[In, Out](Protocol):
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
 
 
+class ComposableMixin[In, Out](Composable[In, Out]):
+    """Mixin -- adds default __or__ implementation to Composable types."""
+
+    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
+        return Pipe(self, other)
+
+
 @dataclass
-class Step[In, Out](Composable[In, Out]):
+class Step[In, Out](ComposableMixin[In, Out]):
     """Composable pipeline step that wraps an async function."""
 
     func: Callable[[In], Awaitable[Out]]
@@ -28,9 +35,6 @@ class Step[In, Out](Composable[In, Out]):
         print(f"{self}({value}) = {res}")
         return res
 
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
-
     def __repr__(self) -> str:
         # Handle normal functions and partials
         func_name = getattr(self.func, "__name__", None)
@@ -39,43 +43,37 @@ class Step[In, Out](Composable[In, Out]):
         return f"{self.__class__.__name__}(func={func_name or 'unknown'})"
 
 @dataclass
-class Pipe[In, Mid, Out](Composable[In, Out]):
+class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
     """Composable pipeline that sequentially composes two steps."""
 
     first: Composable[In, Mid]
     last: Composable[Mid, Out]
 
     async def __call__(self, value: In) -> Out:
-        print(f"{self}({value})")
         # Static checkers now verify:
         # In -> Mid -> Out
         intermediate: Mid = await self.first(value)
         final: Out = await self.last(intermediate)
+        print(f"{self}({value}) = {final}")
         return final
-
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(first={self.first}, last={self.last})"
 
 
-
 @dataclass
-class GatedPipe[In, PipeIn, Out](Composable[In, Out]):
+class GatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
     """Composable pipeline that conditionally executes based on a predicate."""
 
     predicate: Callable[[In], TypeGuard[PipeIn]]
     pipeline: Composable[PipeIn, Out]
 
     async def __call__(self, value: In) -> Out:
-        print(f"{value = } {self.predicate(value) = }")
         if self.predicate(value):
-            return await self.pipeline(value)
+            result = await self.pipeline(value)
+            print(f"{self}({value}) = {result}")
+            return result
         return cast("Out", value)
-
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
 
     def __repr__(self) -> str:
         return (

@@ -14,8 +14,15 @@ class Composable[In, Out](Protocol):
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
 
 
+class ComposableMixin[In, Out](Composable[In, Out]):
+    """Mixin -- adds default __or__ implementation to Composable types."""
+
+    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
+        return Pipe(self, other)
+
+
 @dataclass
-class Step[In, Out](Composable[In, Out]):
+class Step[In, Out](ComposableMixin[In, Out]):
     """Composable pipeline step that wraps an function."""
 
     func: Callable[[In], Out]
@@ -25,8 +32,6 @@ class Step[In, Out](Composable[In, Out]):
         print(f"{self}({value}) = {res}")
         return res
 
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
 
     def __repr__(self) -> str:
         # Handle normal functions and partials
@@ -37,7 +42,7 @@ class Step[In, Out](Composable[In, Out]):
 
 
 @dataclass
-class Pipe[In, Mid, Out](Composable[In, Out]):
+class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
     """Composable pipeline that sequentially composes two steps."""
 
     first: Composable[In, Mid]
@@ -49,6 +54,7 @@ class Pipe[In, Mid, Out](Composable[In, Out]):
         # In -> Mid -> Out
         intermediate: Mid = self.first(value)
         final: Out = self.last(intermediate)
+        print(f"{self}({value}) = {final}")
         return final
 
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
@@ -59,16 +65,17 @@ class Pipe[In, Mid, Out](Composable[In, Out]):
 
 
 @dataclass
-class GatedPipe[In, PipeIn, Out](Composable[In, Out]):
+class GatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
     """Composable pipeline that conditionally executes based on a predicate."""
 
     predicate: Callable[[In], TypeGuard[PipeIn]]
     pipeline: Composable[PipeIn, Out]
 
     def __call__(self, value: In) -> Out:
-        print(f"{value = } {self.predicate(value) = }")
         if self.predicate(value):
-            return self.pipeline(value)
+            result = self.pipeline(value)
+            print(f"{self}({value}) = {result}")
+            return result
         return cast("Out", value)
 
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
