@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial, wraps
 from typing import TYPE_CHECKING, Any, Concatenate, Protocol, TypeGuard, cast
@@ -18,10 +17,13 @@ class Composable[In, Out](Protocol):
 
 
 class ComposableMixin[In, Out](Composable[In, Out]):
-    """Mixin -- adds default __or__ implementation to Composable types."""
+    """Mixin -- adds default __or__ and __and__ implementation to Composable types."""
 
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
         return Pipe(self, other)
+
+    def __and__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
+        return self | GatedPipe(other)
 
 
 @dataclass
@@ -62,7 +64,26 @@ class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
 
 
 @dataclass
-class GatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
+class GatedPipe[In, Out](ComposableMixin[In, Out]):
+    """Composable pipeline that conditionally executes based on a predicate."""
+
+    composable: Composable[In, Out]
+
+    async def __call__(self, value: In) -> Out:
+        if not bool(value):
+            return cast("Out", value)  # short-circuit if falsy
+        result = await self.composable(value)
+        print(f"{self}({value}) = {result}")
+        return result
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(composable={self.composable})"
+        )
+
+
+@dataclass
+class OldGatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
     """Composable pipeline that conditionally executes based on a predicate."""
 
     predicate: Callable[[In], TypeGuard[PipeIn]]
@@ -116,12 +137,20 @@ def predicate(x: Any) -> TypeGuard[int]: # narrows the type on a predicate funct
 
 
 if __name__ == "__main__":
-    add5 = add(y=5)
-    mul10 = multiply(y=10)
-    condition = GatedPipe(predicate=predicate, pipeline=(add5 | mul10))
-    print(f"{condition!r}")
-    pipeline = add5 | condition
-    print(f"{pipeline!r}")
+    # add5 = add(y=5)
+    # mul10 = multiply(y=10)
+    # condition = OldGatedPipe(predicate=predicate, pipeline=(add5 | mul10))
+    # print(f"{condition!r}")
+    # pipeline = add5 | condition
+    # print(f"{pipeline!r}")
+    # result = asyncio.run(pipeline(5))
+    # print(f"Pipeline result: {result}")
 
-    result = asyncio.run(pipeline(5))
+    add5 = add(y=5)
+    mul0 = multiply(y=0)
+    mul10 = multiply(y=10)
+    pipeline = add5 | mul10 & mul10 | mul10
+    print(f"{pipeline!r}")
+    result = asyncio.run(pipeline(0))
     print(f"Pipeline result: {result}")
+

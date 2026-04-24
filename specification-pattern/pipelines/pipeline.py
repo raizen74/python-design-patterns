@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Concatenate, Protocol, TypeGuard, cast
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+
 class Composable[In, Out](Protocol):
     """Protocol for composable pipeline steps."""
 
@@ -15,10 +16,13 @@ class Composable[In, Out](Protocol):
 
 
 class ComposableMixin[In, Out](Composable[In, Out]):
-    """Mixin -- adds default __or__ implementation to Composable types."""
+    """Mixin -- adds default __or__ and __and__ implementation to Composable types."""
 
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
         return Pipe(self, other)
+
+    def __and__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
+        return self | GatedPipe(other)
 
 
 @dataclass
@@ -31,7 +35,6 @@ class Step[In, Out](ComposableMixin[In, Out]):
         res = self.func(value)
         print(f"{self}({value}) = {res}")
         return res
-
 
     def __repr__(self) -> str:
         # Handle normal functions and partials
@@ -49,7 +52,6 @@ class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
     last: Composable[Mid, Out]
 
     def __call__(self, value: In) -> Out:
-        print(f"{self}({value})")
         # Static checkers now verify:
         # In -> Mid -> Out
         intermediate: Mid = self.first(value)
@@ -57,15 +59,29 @@ class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
         print(f"{self}({value}) = {final}")
         return final
 
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
-
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(first={self.first}, last={self.last})"
 
 
 @dataclass
-class GatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
+class GatedPipe[In, Out](ComposableMixin[In, Out]):
+    """Composable pipeline that conditionally executes based on a predicate."""
+
+    composable: Composable[In, Out]
+
+    def __call__(self, value: In) -> Out:
+        if not bool(value):
+            return cast("Out", value)  # short-circuit if falsy
+        result = self.composable(value)
+        print(f"{self}({value}) = {result}")
+        return result
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(composable={self.composable})"
+
+
+@dataclass
+class OldGatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
     """Composable pipeline that conditionally executes based on a predicate."""
 
     predicate: Callable[[In], TypeGuard[PipeIn]]
@@ -77,9 +93,6 @@ class GatedPipe[In, PipeIn, Out](ComposableMixin[In, Out]):
             print(f"{self}({value}) = {result}")
             return result
         return cast("Out", value)
-
-    def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return Pipe(self, other)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(predicate={self.predicate.__name__!r}, pipeline={self.pipeline})"
@@ -117,10 +130,19 @@ def predicate(x: Any) -> TypeGuard[int]:  # narrows the type on a predicate func
 
 
 if __name__ == "__main__":
+    # add5 = add(y=5)
+    # mul10 = multiply(y=10)
+    # condition = OldGatedPipe(predicate=predicate, pipeline=(add5 | mul10))
+    # print(f"{condition!r}")
+    # pipeline = add5 | condition
+    # print(f"{pipeline!r}")
+    # result = asyncio.run(pipeline(5))
+    # print(f"Pipeline result: {result}")
+
     add5 = add(y=5)
+    mul0 = multiply(y=0)
     mul10 = multiply(y=10)
-    condition = GatedPipe(predicate=predicate, pipeline=(add5 | mul10))
-    print(f"{condition!r}")
-    pipeline = add5 | condition
+    pipeline = add5 | mul10 & mul10 | mul10
     print(f"{pipeline!r}")
-    print(f"Pipeline result: {pipeline(5)}")
+    result = pipeline(0)
+    print(f"Pipeline result: {result}")
