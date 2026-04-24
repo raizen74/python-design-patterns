@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Any, Concatenate, Protocol, TypeGuard, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Concatenate, Protocol, TypeGuard, cast
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -14,7 +14,7 @@ class Composable[In, Out](Protocol):
 
     async def __call__(self, value: In) -> Out: ...
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
-    def __and__[NarrowOut, PipeOut](self, other: Composable[NarrowOut, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
+    def __and__[TruthyOut, PipeOut](self, other: Composable[TruthyOut, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
 
 
 class ComposableMixin[In, Out](Composable[In, Out]):
@@ -68,10 +68,11 @@ class Pipe[In, Mid, Out](ComposableMixin[In, Out]):
 class GatedPipe[In, Out](ComposableMixin[In, Out]):
     """Composable pipeline that conditionally executes based on a predicate."""
 
+    predicate: ClassVar[Callable[..., bool]] = bool
     composable: Composable[In, Out]
 
     async def __call__(self, value: In) -> Out:
-        if not bool(value):
+        if not self.predicate(value):
             return cast("Out", value)  # short-circuit if falsy
         result = await self.composable(value)
         print(f"{self}({value}) = {result}")
@@ -150,8 +151,12 @@ if __name__ == "__main__":
     add5 = add(y=5)
     mul0 = multiply(y=0)
     mul10 = multiply(y=10)
-    pipeline = add5 | mul10 & mul10 | mul10
+    pipeline = mul0 & (add5 | add5)
     print(f"{pipeline!r}")
-    result = asyncio.run(pipeline(0))
+    result = asyncio.run(pipeline(0)) # 0 * 0 = 0, so add5 | add5 is skipped, pipeline returns 0
+    print(f"Pipeline result: {result}")
+    pipeline = mul0 & add5 | add5
+    print(f"{pipeline!r}")
+    result = asyncio.run(pipeline(0)) # 0 * 0 = 0, sof first add5 is skipped, second add5 is executed, pipeline returns 5
     print(f"Pipeline result: {result}")
 
