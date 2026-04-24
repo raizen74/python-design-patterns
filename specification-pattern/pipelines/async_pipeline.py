@@ -24,7 +24,7 @@ class ComposableMixin[In, Out](Composable[In, Out]):
         return Pipe(self, other)
 
     def __and__[TruthyOut, PipeOut](self, other: Composable[TruthyOut, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return self | GatedPipe(cast("Composable[Out, PipeOut]", other))
+        return self | GatedPipe(cast(Composable[Out, PipeOut], other))
 
 
 @dataclass

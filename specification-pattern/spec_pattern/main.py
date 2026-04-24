@@ -1,7 +1,10 @@
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from rules import RULES, predicate, rule
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 print(f"{RULES = }")
 # ---------------------------------------------------------------------------

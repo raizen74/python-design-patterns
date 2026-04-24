@@ -1,1 +1,1 @@
-from main import Runnable
+from spec_pattern.main import Runnable
