@@ -13,6 +13,7 @@ class Composable[In, Out](Protocol):
 
     def __call__(self, value: In) -> Out: ...
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
+    def __and__[NarrowOut, PipeOut](self, other: Composable[NarrowOut, PipeOut]) -> Pipe[In, Out, PipeOut]: ...
 
 
 class ComposableMixin[In, Out](Composable[In, Out]):
@@ -21,8 +22,8 @@ class ComposableMixin[In, Out](Composable[In, Out]):
     def __or__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
         return Pipe(self, other)
 
-    def __and__[PipeOut](self, other: Composable[Out, PipeOut]) -> Pipe[In, Out, PipeOut]:
-        return self | GatedPipe(other)
+    def __and__[TruthyOut, PipeOut](self, other: Composable[TruthyOut, PipeOut]) -> Pipe[In, Out, PipeOut]:
+        return self | GatedPipe(cast("Composable[Out, PipeOut]", other))
 
 
 @dataclass
