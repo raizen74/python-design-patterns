@@ -1,6 +1,7 @@
+from typing import TYPE_CHECKING
 
-
-from event import Event
+if TYPE_CHECKING:
+    from event import Event
 
 
 class EventStore[T]:

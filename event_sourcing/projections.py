@@ -1,6 +1,10 @@
 from collections import Counter, defaultdict
+from typing import TYPE_CHECKING
+
 from event import Event, EventType
-from item import Item
+
+if TYPE_CHECKING:
+    from item import Item
 
 
 def get_most_collected_items(events: list[Event[Item]], top_n: int = 5) -> list[tuple[str, int]]:
@@ -13,7 +17,7 @@ def get_most_collected_items(events: list[Event[Item]], top_n: int = 5) -> list[
 
 
 def get_item_origins(events: list[Event[Item]]) -> dict[str, set[str]]:
-    """Returns a mapping of item names to all origins they’ve appeared in."""
+    """Returns a mapping of item names to all origins they've appeared in."""
     origins: dict[str, set[str]] = defaultdict(set)
     for event in events:
         if event.type == EventType.ITEM_ADDED:

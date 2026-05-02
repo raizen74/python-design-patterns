@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 
 
@@ -12,4 +12,4 @@ class EventType(StrEnum):
 class Event[T = str]:
     type: EventType
     data: T
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC), init=False, repr=False)

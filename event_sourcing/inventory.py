@@ -1,13 +1,17 @@
 from collections import Counter
 from functools import cache
+from typing import TYPE_CHECKING
+
 from event import Event, EventType
-from item import Item
-from event_store import EventStore
+
+if TYPE_CHECKING:
+    from event_store import EventStore
+    from item import Item
 
 
 class Inventory:
     def __init__(self, store: EventStore[Item]):
-        self.store = store # bridge pattern: inventory depends on event store interface, not implementation
+        self.store = store  # bridge pattern: inventory depends on event store interface, not implementation
 
     @cache
     def get_items(self) -> list[tuple[str, int]]:
@@ -19,11 +23,7 @@ class Inventory:
             elif event.type == EventType.ITEM_REMOVED:
                 counts[name] -= 1
 
-        return [
-            (name, count)
-            for name, count in counts.items()
-            if count > 0
-        ]
+        return [(name, count) for name, count in counts.items() if count > 0]
 
     def get_count(self, item_name: str) -> int:
         return dict(self.get_items()).get(item_name, 0)

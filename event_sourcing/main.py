@@ -1,7 +1,7 @@
 from event_store import EventStore
 from inventory import Inventory
 from item import Item
-from projections import get_most_collected_items, get_item_origins
+from projections import get_item_origins, get_most_collected_items
 
 
 def main() -> None:
@@ -15,7 +15,7 @@ def main() -> None:
     scroll = Item(name="scroll", rarity="epic", origin="tower")
 
     # Set up store and inventory
-    store = EventStore[Item]() # data is of type Item, but store is generic and can be reused for other types
+    store = EventStore[Item]()  # data is of type Item, but store is generic and can be reused for other types
     inventory = Inventory(store)
 
     # Add some items
@@ -48,7 +48,7 @@ def main() -> None:
     print("\n=== Item Origins ===")
     origins = get_item_origins(events)
     for name, origin_set in origins.items():
-        origin_list = ', '.join(sorted(origin_set))
+        origin_list = ", ".join(sorted(origin_set))
         print(f"{name}: {origin_list}")
 
 
